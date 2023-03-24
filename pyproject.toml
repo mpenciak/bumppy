@@ -1,0 +1,13 @@
+[tool.poetry]
+name = "bumppy"
+version = "0.1.0"
+description = ""
+authors = ["Matej Penciak <matej.penciak@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
