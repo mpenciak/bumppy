@@ -1,23 +1,18 @@
 from github import Github
 from datetime import datetime
 import re
+import LeanProject
+from Utils import parse_toolchain_date
 
-def parse_toolchain_date(toolchain_string: str):
-    toolchain_re = re.compile(r"[\d]{4}-[\d]{2}-[\d]{2}")
-    toolchain_match = toolchain_re.search(toolchain_string)
-    if toolchain_match:
-        toolchain_date = datetime.strptime(toolchain_match.group(), "%Y-%m-%d")
-    else:
-        raise Exception("Unable to parse toolchain string")
-    return toolchain_date
 
 class BumpProject():
-    def __init__(self, org: str, target_date: datetime, roots) -> None:
-        self.org = org
+    def __init__(self, owner: str, target_date: datetime, roots) -> None:
+        self.owner = owner
         self.target_date = target_date
         if not self.verify_lean_toolchain():
             raise Exception("Lean toolchain not supported")
         self.roots = roots
+        self.all_repos = self.roots
 
     def verify_lean_toolchain(self):
         g = Github()
@@ -32,7 +27,10 @@ class BumpProject():
 
     @classmethod
     def from_toml(cls, bump_data):
-        org = bump_data["org"]
+        owner = bump_data["owner"]
         date = bump_data["date"]
-        root_repos = bump_data["repos"]
-        return cls(org, date, root_repos)
+        root_repos = bump_data["root_repos"]
+        return cls(owner, date, root_repos)
+
+    def get_all_repos(self):
+        pass
