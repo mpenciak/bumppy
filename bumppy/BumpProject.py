@@ -2,6 +2,7 @@ from github import Github
 from datetime import datetime
 import networkx as nx
 import requests
+import pickle
 from .LeanProject import LeanProject
 from .Utils import parse_toolchain_date, get_name_owner_from_url
 from .secret import TOKEN
@@ -13,7 +14,7 @@ class BumpProject():
         # if not self.verify_lean_toolchain(): # TODO: Fix this
         #     raise Exception("Lean toolchain not supported")
         
-        self.get_std_commit()
+        self.get_std_target()
 
         self.root_names = root_names
         self.repo_dict: dict[str, LeanProject] = {}
@@ -24,7 +25,7 @@ class BumpProject():
         self.dep_graph = nx.DiGraph()
         self.get_all_repos()
 
-        self.bump_order = nx.lexicographical_topological_sort(self.dep_graph)
+        self.bump_order = list(nx.lexicographical_topological_sort(self.dep_graph))
 
     # def verify_lean_toolchain(self): #TODO: This hits the API rate limit during testing
     #     g = Github()
@@ -37,7 +38,7 @@ class BumpProject():
     #     else:
     #         return False
     
-    def get_std_commit(self): #TODO: Do something better for external repos in general
+    def get_std_target(self): #TODO: Do something better for external repos in general
         g = Github(login_or_token=TOKEN)
         std_repo = g.get_repo("leanprover/std4")
         commits = std_repo.get_commits()
@@ -49,7 +50,7 @@ class BumpProject():
                 break
             else:
                 pass
-        self.std_sha = commit.commit.raw_data['sha'] #pyright: ignore
+        self.target_std_sha: str = commit.commit.raw_data['sha'] #pyright: ignore
 
     @classmethod
     def from_toml(cls, bump_data):
@@ -58,9 +59,6 @@ class BumpProject():
         root_repos = bump_data["root_repos"]
         return cls(owner, date, root_repos)
 
-    @classmethod
-    def from_restart(cls):
-        pass
 
     def add_repo_deps(self, repo_name: str):
         repo = self.repo_dict[repo_name]
