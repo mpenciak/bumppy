@@ -1,5 +1,9 @@
 # import datetime
 from github import Github
+from git.repo import Repo
+from pathlib import Path
+import os
+from datetime import date
 import re
 import requests
 from .Utils import parse_toolchain_date
@@ -54,7 +58,34 @@ class LeanProject():
         repo = self.get_repo()
         main_branch = repo.default_branch
         self.main_sha = repo.get_branch(main_branch).commit.sha
+
+    def clone(self):
+        curr_dir = Path(os.curdir)
+        self.local_path = curr_dir / self.url_name
+        Repo.clone_from(self.github_url, self.local_path)
     
-# class ExternalProject(LeanProject):
-#     def __init__(self, name: str) -> None:
-#         super().__init__(name)
+    def checkout_bump_commit(self,target_date: date):
+        local_repo = Repo(self.local_path)
+        pp_date = target_date.strftime("%Y-%m-%d")
+        branch_name = f"bump-to-{pp_date}"
+        new_branch = local_repo.create_head(branch_name)
+        new_branch.checkout()
+    
+    def bump_toolchain(self, target_date: date):
+        local_repo = Repo(self.local_path)
+        pp_date = target_date.strftime("%Y-%m-%d")
+        toolchain_str = f"leanprover/lean4:nightly-{pp_date}"
+        toolchain_path = self.local_path / "lean-toolchain"
+        with open(toolchain_path, 'w') as file:
+            file.write(toolchain_str)
+        local_repo.index.add(['lean-toolchain'])
+        local_repo.index.commit('bump toolchain file')
+
+    def bump_dep_shas(self, sha_dict: dict[str, str]):
+        pass
+
+    def attempt_build(self):
+        pass
+
+    def attempt_test(self):
+        pass

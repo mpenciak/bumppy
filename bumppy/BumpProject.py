@@ -6,6 +6,10 @@ import pickle
 from .LeanProject import LeanProject
 from .Utils import parse_toolchain_date, get_name_owner_from_url
 from .secret import TOKEN
+from enum import Enum
+
+class BumpStatus(Enum):
+    CLONED = 1
 
 class BumpProject():
     def __init__(self, owner: str, target_date: datetime, root_names: list[str]) -> None:
@@ -25,7 +29,9 @@ class BumpProject():
         self.dep_graph = nx.DiGraph()
         self.get_all_repos()
 
-        self.bump_order = list(nx.lexicographical_topological_sort(self.dep_graph))
+        self.bump_order = list(nx.algorithms.dag.lexicographical_topological_sort(self.dep_graph))
+
+        self.bump_status = {}
 
     # def verify_lean_toolchain(self): #TODO: This hits the API rate limit during testing
     #     g = Github()
@@ -59,6 +65,10 @@ class BumpProject():
         root_repos = bump_data["root_repos"]
         return cls(owner, date, root_repos)
 
+    @classmethod
+    def from_restart(cls, file_path: str) -> "BumpProject":
+        with open(file_path, 'rb') as file:
+            return pickle.load(file)
 
     def add_repo_deps(self, repo_name: str):
         repo = self.repo_dict[repo_name]
@@ -74,4 +84,7 @@ class BumpProject():
     def get_all_repos(self):
         for repo_name in self.root_names:
             self.add_repo_deps(repo_name)
-            
+    
+    def dump_self(self):
+        with open('./bumpproject', 'wb') as file:
+            pickle.dump(self, file)
