@@ -1,8 +1,8 @@
 import tomli
 import os
-from BumpProject import BumpProject
 from pathlib import Path
 import re
+from .BumpProject import BumpProject
 
 # TODO: This module should contain the CLI
 
