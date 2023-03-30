@@ -1,5 +1,5 @@
 from github import Github
-from datetime import datetime
+from datetime import date
 import networkx as nx
 import requests
 import pickle
@@ -9,13 +9,19 @@ from .secret import TOKEN
 from enum import Enum
 
 class BumpStatus(Enum):
+    INIT = 0
     CLONED = 1
+    CHECKEDOUT = 2
+    TOOLCHAINBUMPED = 3
+    DEPSHASBUMPED = 4
+    BUILDS = 5
+    TESTSPASS = 6
 
 class BumpProject():
-    def __init__(self, owner: str, target_date: datetime, root_names: list[str]) -> None:
+    def __init__(self, owner: str, target_date: date, root_names: list[str]) -> None:
         self.owner = owner
         self.target_date = target_date
-        # if not self.verify_lean_toolchain(): # TODO: Fix this
+        # if not self.verify_lean_toolchain(): # TODO: This hits the API rate limit during testing
         #     raise Exception("Lean toolchain not supported")
         
         self.get_std_target()
@@ -31,7 +37,8 @@ class BumpProject():
 
         self.bump_order = list(nx.algorithms.dag.lexicographical_topological_sort(self.dep_graph))
 
-        self.bump_status = {}
+        self.bump_status: dict[str, BumpStatus] = {}
+        self.bump_shas: dict[str, str] = {}
 
     # def verify_lean_toolchain(self): #TODO: This hits the API rate limit during testing
     #     g = Github()
@@ -88,3 +95,28 @@ class BumpProject():
     def dump_self(self):
         with open('./bumpproject', 'wb') as file:
             pickle.dump(self, file)
+        
+    def bump_leanproject(self, lpname: str): # TODO: Add logic to break and re-initiate on failed builds and tests
+        lp = self.repo_dict[lpname]
+        self.bump_status[lpname] = BumpStatus.INIT
+        lp.clone()
+        self.bump_status[lpname] = BumpStatus.CLONED
+        lp.checkout_bump_commit(self.target_date)
+        self.bump_status[lpname] = BumpStatus.CHECKEDOUT
+        lp.bump_toolchain(self.target_date)
+        self.bump_status[lpname] = BumpStatus.TOOLCHAINBUMPED
+        new_sha = lp.bump_dep_shas(self.bump_shas)
+        self.bump_shas[lpname] = new_sha
+        self.bump_status[lpname] = BumpStatus.DEPSHASBUMPED
+
+        lp.attempt_build()
+        self.bump_status[lpname] = BumpStatus.BUILDS
+
+        lp.attempt_test()
+        self.bump_status[lpname] = BumpStatus.TESTSPASS
+
+        lp.push_changes()
+
+    def bump_all_projects(self):
+        for project in self.bump_order:
+            self.bump_leanproject(project)

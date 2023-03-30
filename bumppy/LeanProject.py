@@ -6,6 +6,7 @@ import os
 from datetime import date
 import re
 import requests
+import subprocess
 from .Utils import parse_toolchain_date
 from .secret import TOKEN
 
@@ -79,13 +80,37 @@ class LeanProject():
         with open(toolchain_path, 'w') as file:
             file.write(toolchain_str)
         local_repo.index.add(['lean-toolchain'])
-        local_repo.index.commit('bump toolchain file')
+        new_commit = local_repo.index.commit('bump toolchain file')
+        return new_commit.binsha.hex()
 
     def bump_dep_shas(self, sha_dict: dict[str, str]):
-        pass
+        local_repo = Repo(self.local_path)
+        lakefile_path = self.local_path / "lakefile.lean"
+        with open(lakefile_path, 'r') as read_file:
+            lakefile_str = read_file.read()
+        
+        new_lakefile_str = lakefile_str
+        for dep in self.deps:
+            new_lakefile_str = new_lakefile_str.replace(self.deps[dep]['sha'], sha_dict[dep])
+
+        with open(lakefile_path, 'w') as write_file:
+            write_file.write(new_lakefile_str)
+        
+        local_repo.index.add(['lakefile.lean'])
+        new_commit = local_repo.index.commit('bump dependencies in lakefile')
+        return new_commit.binsha.hex()
 
     def attempt_build(self):
-        pass
-
+        process = subprocess.run(["lake", "build"], cwd=self.local_path)
+        if not process.returncode == 0:
+            print("Building failed, please check this repo")
+        
     def attempt_test(self):
-        pass
+        process = subprocess.run(["lake", "exe", "lspec"], cwd=self.local_path)
+        if not process.returncode == 0:
+            print("Some tests failed, please check this repo")
+
+    def push_changes(self):
+        local_repo = Repo(self.local_path)
+        origin = local_repo.remotes[0]
+        local_repo.git.push("--set-upstream", origin, local_repo.head.ref)
