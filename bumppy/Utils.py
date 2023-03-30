@@ -1,5 +1,6 @@
 import re
 from datetime import date
+from urllib.parse import urlparse
 
 def parse_toolchain_date(toolchain_string: str):
     toolchain_re = re.compile(r"[\d]{4}-[\d]{2}-[\d]{2}")
@@ -13,3 +14,9 @@ def parse_toolchain_date(toolchain_string: str):
     else:
         raise Exception("Unable to parse toolchain string")
     return toolchain_date
+
+def get_name_owner_from_url(url: str):
+    split_path = urlparse(url).path.split('/')
+    owner = split_path[1]
+    repo = split_path[2]
+    return owner, repo

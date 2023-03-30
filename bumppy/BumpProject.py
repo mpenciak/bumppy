@@ -3,7 +3,8 @@ from datetime import datetime
 import networkx as nx
 import requests
 from .LeanProject import LeanProject
-from .Utils import parse_toolchain_date
+from .Utils import parse_toolchain_date, get_name_owner_from_url
+from .secret import TOKEN
 
 class BumpProject():
     def __init__(self, owner: str, target_date: datetime, root_names: list[str]) -> None:
@@ -25,7 +26,7 @@ class BumpProject():
 
         self.bump_order = nx.lexicographical_topological_sort(self.dep_graph)
 
-    # def verify_lean_toolchain(self): #TODO: This hits the rate limit
+    # def verify_lean_toolchain(self): #TODO: This hits the API rate limit during testing
     #     g = Github()
     #     release_repo = g.get_repo("leanprover/lean4-nightly")
     #     tags = release_repo.get_tags()
@@ -37,7 +38,7 @@ class BumpProject():
     #         return False
     
     def get_std_commit(self): #TODO: Do something better for external repos in general
-        g = Github()
+        g = Github(login_or_token=TOKEN)
         std_repo = g.get_repo("leanprover/std4")
         commits = std_repo.get_commits()
         for commit in commits:
@@ -64,8 +65,9 @@ class BumpProject():
     def add_repo_deps(self, repo_name: str):
         repo = self.repo_dict[repo_name]
         for dep in repo.deps:
-            if dep != 'std4' and not dep in self.repo_dict: # TODO: Do something better for external repos in general
-                self.repo_dict[dep] = LeanProject(dep, self.owner)
+            owner, name= get_name_owner_from_url(repo.deps[dep]["url"])
+            if name != 'std4' and not name in self.repo_dict: # TODO: Do something better for external repos in general
+                self.repo_dict[dep] = LeanProject(name, owner)
                 self.dep_graph.add_edge(dep, repo_name)
                 self.add_repo_deps(dep)
             else:
